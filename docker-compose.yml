@@ -18,10 +18,14 @@ services:
     container_name: ax-vllm-tp3
     restart: unless-stopped
     environment:
-      <<: *common-env
+      HUGGING_FACE_HUB_TOKEN: ${HUGGING_FACE_HUB_TOKEN:-}
+      VLLM_LOGGING_LEVEL: INFO
+      VLLM_NO_USAGE_STATS: "1"
+      HF_HOME: /data/hf-cache
+      HUGGINGFACE_HUB_CACHE: /data/hf-cache
       NVIDIA_VISIBLE_DEVICES: "0,1,2"
     command: >
-      vllm serve skt/A.X-4.0-Light
+      --model skt/A.X-4.0-Light
       --host 0.0.0.0
       --port 8000
       --tensor-parallel-size 3
@@ -30,7 +34,8 @@ services:
       --enforce-eager
       --enable-auto-tool-choice
       --tool-call-parser hermes
-    volumes: *common-volumes
+    volumes:
+      - ./data/hf-cache:/data/hf-cache
     ports:
       - "8000:8000"
     runtime: nvidia
@@ -39,6 +44,7 @@ services:
       interval: 30s
       timeout: 5s
       retries: 5
+
 
   # ===== 모드 B: GPU별 독립 인스턴스 3개 =====
   ax_vllm_gpu0:
