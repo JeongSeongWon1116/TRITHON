@@ -1,7 +1,6 @@
 version: "3.9"
 
 x-common-env: &common-env
-  # 필요시 Hugging Face 토큰 (공개 모델이지만 rate limit 완화에 도움)
   HUGGING_FACE_HUB_TOKEN: ${HUGGING_FACE_HUB_TOKEN:-}
   VLLM_LOGGING_LEVEL: INFO
   VLLM_NO_USAGE_STATS: "1"
@@ -9,19 +8,18 @@ x-common-env: &common-env
   TRANSFORMERS_CACHE: /data/hf-cache
   HUGGINGFACE_HUB_CACHE: /data/hf-cache
 
-x-common-deploy: &common-deploy
-  restart: unless-stopped
-
 x-common-volumes: &common-volumes
-  - ./data/hf-cache:/data/hf-cache  # 모델/토큰 캐시 공유 (호스트 경로)
+  - ./data/hf-cache:/data/hf-cache
 
-# ===== 모드 A: 단일 인스턴스가 3GPU 모두 사용 (tensor parallel = 3) =====
+# ===== 모드 A: 단일 인스턴스가 3GPU 모두 사용 (TP=3) =====
 services:
   ax_vllm_tp3:
     build: .
     container_name: ax-vllm-tp3
+    restart: unless-stopped
     environment:
       <<: *common-env
+      NVIDIA_VISIBLE_DEVICES: "0,1,2"
     command: >
       vllm serve skt/A.X-4.0-Light
       --host 0.0.0.0
@@ -30,32 +28,23 @@ services:
       --dtype bfloat16
       --max-model-len 16384
       --enforce-eager
-      # (옵션) 도구 호출 활성화: 모델 카드 권장
       --enable-auto-tool-choice
       --tool-call-parser hermes
     volumes: *common-volumes
     ports:
       - "8000:8000"
-    deploy: *common-deploy
+    runtime: nvidia
     healthcheck:
       test: [ "CMD", "/healthcheck.sh" ]
       interval: 30s
       timeout: 5s
       retries: 5
-    runtime: nvidia
-    # NVIDIA Container Toolkit 사용
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - capabilities: [gpu]
-    environment:
-      NVIDIA_VISIBLE_DEVICES: "0,1,2"
 
   # ===== 모드 B: GPU별 독립 인스턴스 3개 =====
   ax_vllm_gpu0:
     build: .
     container_name: ax-vllm-gpu0
+    restart: unless-stopped
     environment:
       <<: *common-env
       NVIDIA_VISIBLE_DEVICES: "0"
@@ -72,17 +61,17 @@ services:
     volumes: *common-volumes
     ports:
       - "8001:8001"
-    deploy: *common-deploy
     runtime: nvidia
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - capabilities: [gpu]
+    healthcheck:
+      test: [ "CMD", "/healthcheck.sh" ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
 
   ax_vllm_gpu1:
     build: .
     container_name: ax-vllm-gpu1
+    restart: unless-stopped
     environment:
       <<: *common-env
       NVIDIA_VISIBLE_DEVICES: "1"
@@ -99,17 +88,17 @@ services:
     volumes: *common-volumes
     ports:
       - "8002:8002"
-    deploy: *common-deploy
     runtime: nvidia
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - capabilities: [gpu]
+    healthcheck:
+      test: [ "CMD", "/healthcheck.sh" ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
 
   ax_vllm_gpu2:
     build: .
     container_name: ax-vllm-gpu2
+    restart: unless-stopped
     environment:
       <<: *common-env
       NVIDIA_VISIBLE_DEVICES: "2"
@@ -126,10 +115,9 @@ services:
     volumes: *common-volumes
     ports:
       - "8003:8003"
-    deploy: *common-deploy
     runtime: nvidia
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - capabilities: [gpu]
+    healthcheck:
+      test: [ "CMD", "/healthcheck.sh" ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
