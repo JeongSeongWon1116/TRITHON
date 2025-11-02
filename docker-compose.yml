@@ -13,9 +13,9 @@ x-common-volumes: &common-volumes
 
 # ===== 모드 A: 단일 인스턴스가 3GPU 모두 사용 (TP=3) =====
 services:
-  ax_vllm_tp3:
+  ax_vllm_tp2:
     build: .
-    container_name: ax-vllm-tp3
+    container_name: ax-vllm-tp2
     restart: unless-stopped
     environment:
       HUGGING_FACE_HUB_TOKEN: ${HUGGING_FACE_HUB_TOKEN:-}
@@ -23,12 +23,12 @@ services:
       VLLM_NO_USAGE_STATS: "1"
       HF_HOME: /data/hf-cache
       HUGGINGFACE_HUB_CACHE: /data/hf-cache
-      NVIDIA_VISIBLE_DEVICES: "0,1,2"
+      NVIDIA_VISIBLE_DEVICES: "0,1"
     command: >
       --model skt/A.X-4.0-Light
       --host 0.0.0.0
       --port 8000
-      --tensor-parallel-size 3
+      --tensor-parallel-size 2
       --dtype bfloat16
       --max-model-len 16384
       --enforce-eager
@@ -36,14 +36,46 @@ services:
       --tool-call-parser hermes
     volumes:
       - ./data/hf-cache:/data/hf-cache
-    ports:
-      - "8000:8000"
+    ports: ["8000:8000"]
     runtime: nvidia
     healthcheck:
       test: [ "CMD", "/healthcheck.sh" ]
       interval: 30s
       timeout: 5s
       retries: 5
+
+  # 남는 GPU2는 단독 인스턴스
+  ax_vllm_gpu2:
+    build: .
+    container_name: ax-vllm-gpu2
+    restart: unless-stopped
+    environment:
+      HUGGING_FACE_HUB_TOKEN: ${HUGGING_FACE_HUB_TOKEN:-}
+      VLLM_LOGGING_LEVEL: INFO
+      VLLM_NO_USAGE_STATS: "1"
+      HF_HOME: /data/hf-cache
+      HUGGINGFACE_HUB_CACHE: /data/hf-cache
+      NVIDIA_VISIBLE_DEVICES: "2"
+    command: >
+      --model skt/A.X-4.0-Light
+      --host 0.0.0.0
+      --port 8003
+      --tensor-parallel-size 1
+      --dtype bfloat16
+      --max-model-len 16384
+      --enforce-eager
+      --enable-auto-tool-choice
+      --tool-call-parser hermes
+    volumes:
+      - ./data/hf-cache:/data/hf-cache
+    ports: ["8003:8003"]
+    runtime: nvidia
+    healthcheck:
+      test: [ "CMD", "/healthcheck.sh" ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
 
 
   # ===== 모드 B: GPU별 독립 인스턴스 3개 =====
